@@ -98,33 +98,68 @@ const EventSchema = new Schema<IEvent>(
   }
 );
 
-// Create unique index on slug for faster lookups and enforce uniqueness
-EventSchema.index({ slug: 1 }, { unique: true, background: true });
+// Create unique index on slug for faster lookups
+EventSchema.index({ slug: 1 });
 
-// Helper function to generate a URL-friendly slug
-function generateSlug(title: string): string {
-  const baseSlug = title
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  // Append random suffix to reduce slug collision risk
-  const uniqueSuffix = Math.random().toString(36).substring(2, 6);
-  return `${baseSlug}-${uniqueSuffix}`;
-}
-
-// Pre-save hook to generate slug and normalize eventStartAt
-EventSchema.pre<IEvent>("save", function (next) {
-  if (this.isModified("title") || !this.slug) {
-    this.slug = generateSlug(this.title);
+/**
+ * Pre-save hook to generate slug and normalize date/time
+ * - Generates URL-friendly slug from title only when title changes
+ * - Normalizes date to ISO format (YYYY-MM-DD)
+ * - Ensures time is in 24-hour format (HH:MM)
+ */
+EventSchema.pre("save", function (next) {
+  // Generate slug from title if title is modified or new document
+  if (this.isModified("title")) {
+    this.slug = this.title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // Remove special characters
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
   }
 
-  // Ensure eventStartAt is a valid date
-  if (isNaN(this.eventStartAt.getTime())) {
-    return next(new Error("Invalid event start date"));
+  // Normalize date to ISO format (YYYY-MM-DD)
+  if (this.isModified("date")) {
+    const parsedDate = new Date(this.date);
+    if (isNaN(parsedDate.getTime())) {
+      return next(new Error("Invalid date format"));
+    }
+    // Store as ISO date string (YYYY-MM-DD)
+    this.date = parsedDate.toISOString().split("T")[0];
+  }
+
+  // Normalize time to 24-hour format (HH:MM)
+  if (this.isModified("time")) {
+    // Match HH:MM format (24-hour)
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+    if (!timeRegex.test(this.time)) {
+      // Try to parse and convert to 24-hour format
+      const timeMatch = this.time.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+
+      if (timeMatch) {
+        let hours = parseInt(timeMatch[1]);
+        const minutes = timeMatch[2];
+        const meridiem = timeMatch[3]?.toLowerCase();
+
+        // Convert to 24-hour format if AM/PM is present
+        if (meridiem === "pm" && hours !== 12) {
+          hours += 12;
+        } else if (meridiem === "am" && hours === 12) {
+          hours = 0;
+        }
+
+        // Ensure hours is within valid range
+        if (hours >= 0 && hours <= 23) {
+          this.time = `${hours.toString().padStart(2, "0")}:${minutes}`;
+        } else {
+          return next(new Error("Invalid time format"));
+        }
+      } else {
+        return next(new Error("Time must be in HH:MM format (24-hour)"));
+      }
+    }
   }
 
   next();

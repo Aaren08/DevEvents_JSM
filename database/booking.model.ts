@@ -23,9 +23,12 @@ const BookingSchema = new Schema<IBooking>(
       lowercase: true,
       validate: {
         validator: function (email: string) {
-          // RFC 5322 compliant email regex
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          return emailRegex.test(email);
+          // Basic, safer email validation: prevents consecutive dots and enforces simple local@domain.tld shape
+          const simpleEmail = /^[^\s@.][^\s@]*@[^\s@.]+\.[^\s@.]{2,}$/;
+          if (!simpleEmail.test(email)) return false;
+          // Disallow consecutive dots anywhere
+          if (email.includes('..')) return false;
+          return true;
         },
         message: "Please provide a valid email address",
       },
@@ -46,19 +49,21 @@ BookingSchema.index({ eventId: 1 });
  * - Throws error if event does not exist
  */
 BookingSchema.pre("save", async function (next) {
-  // Only validate eventId if it's modified or new document
-  if (this.isModified("eventId")) {
+  if (this.isModified("eventId") && this.eventId) {
     try {
-      const eventExists = await Event.findById(this.eventId);
+      const idStr = this.eventId.toString();
+      if (!Types.ObjectId.isValid(idStr)) {
+        return next(new Error("Invalid eventId format"));
+      }
 
-      if (!eventExists) {
+      const count = await Event.countDocuments({ _id: idStr }).maxTimeMS(500);
+      if (count === 0) {
         return next(new Error("Referenced event does not exist"));
       }
-    } catch {
+    } catch (err) {
       return next(new Error("Failed to validate event reference"));
     }
   }
-
   next();
 });
 
