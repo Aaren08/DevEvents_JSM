@@ -138,34 +138,29 @@ EventSchema.pre('save', function (next) {
 
   // Normalize time to 24-hour format (HH:MM)
   if (this.isModified('time')) {
-    // Match HH:MM format (24-hour)
-    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-    
-    if (!timeRegex.test(this.time)) {
-      // Try to parse and convert to 24-hour format
-      const timeMatch = this.time.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
-      
-      if (timeMatch) {
-        let hours = parseInt(timeMatch[1]);
-        const minutes = timeMatch[2];
-        const meridiem = timeMatch[3]?.toLowerCase();
+    // Try to parse and convert to 24-hour format
+    const timeMatch = this.time.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
 
-        // Convert to 24-hour format if AM/PM is present
-        if (meridiem === 'pm' && hours !== 12) {
-          hours += 12;
-        } else if (meridiem === 'am' && hours === 12) {
-          hours = 0;
-        }
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = timeMatch[2];
+      const meridiem = timeMatch[3]?.toLowerCase();
 
-        // Ensure hours is within valid range
-        if (hours >= 0 && hours <= 23) {
-          this.time = `${hours.toString().padStart(2, '0')}:${minutes}`;
-        } else {
-          return next(new Error('Invalid time format'));
-        }
-      } else {
-        return next(new Error('Time must be in HH:MM format (24-hour)'));
+      // Convert to 24-hour format if AM/PM is present
+      if (meridiem === 'pm' && hours < 12) {
+        hours += 12;
+      } else if (meridiem === 'am' && hours === 12) {
+        hours = 0; // Midnight case
       }
+
+      // Validate final hours and minutes
+      if (hours >= 0 && hours <= 23 && parseInt(minutes, 10) >= 0 && parseInt(minutes, 10) <= 59) {
+        this.time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+      } else {
+        return next(new Error('Invalid time format'));
+      }
+    } else {
+      return next(new Error('Time must be in HH:MM or h:mm a format'));
     }
   }
 
