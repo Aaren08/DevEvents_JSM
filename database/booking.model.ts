@@ -23,10 +23,12 @@ const BookingSchema = new Schema<IBooking>(
       lowercase: true,
       validate: {
         validator: function (email: string) {
-          // More robust email validation regex
-          const emailRegex =
-            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-          return emailRegex.test(email);
+          // Basic, safer email validation: prevents consecutive dots and enforces simple local@domain.tld shape
+          const simpleEmail = /^[^\s@.][^\s@]*@[^\s@.]+\.[^\s@.]{2,}$/;
+          if (!simpleEmail.test(email)) return false;
+          // Disallow consecutive dots anywhere
+          if (email.includes('..')) return false;
+          return true;
         },
         message: "Please provide a valid email address",
       },
