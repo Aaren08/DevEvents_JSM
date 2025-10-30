@@ -46,19 +46,23 @@ BookingSchema.index({ eventId: 1 });
  * - Throws error if event does not exist
  */
 BookingSchema.pre("save", async function (next) {
-  // Only validate eventId if it's modified or new document
   if (this.isModified("eventId")) {
     try {
-      const eventExists = await Event.findById(this.eventId);
+      // Validate ObjectId shape before querying
+      if (!Types.ObjectId.isValid(this.eventId)) {
+        return next(new Error("Invalid eventId format"));
+      }
+
+      // Query minimally for existence
+      const eventExists = await Event.findById(this.eventId).select("_id").lean();
 
       if (!eventExists) {
         return next(new Error("Referenced event does not exist"));
       }
-    } catch {
+    } catch (err) {
       return next(new Error("Failed to validate event reference"));
     }
   }
-
   next();
 });
 
