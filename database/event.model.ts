@@ -105,8 +105,8 @@ const EventSchema = new Schema<IEvent>(
   }
 );
 
-// Create unique index on slug for faster lookups
-EventSchema.index({ slug: 1 });
+// Create unique index on slug for faster lookups and enforce uniqueness
+EventSchema.index({ slug: 1 }, { unique: true });
 
 /**
  * Pre-save hook to generate slug and normalize date/time
