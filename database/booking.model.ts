@@ -47,17 +47,15 @@ BookingSchema.index({ eventId: 1 });
  * - Throws error if event does not exist
  */
 BookingSchema.pre("save", async function (next) {
-  if (this.isModified("eventId")) {
+  if (this.isModified("eventId") && this.eventId) {
     try {
-      // Validate ObjectId shape before querying
-      if (!Types.ObjectId.isValid(this.eventId)) {
+      const idStr = this.eventId.toString();
+      if (!Types.ObjectId.isValid(idStr)) {
         return next(new Error("Invalid eventId format"));
       }
 
-      // Query minimally for existence
-      const eventExists = await Event.findById(this.eventId).select("_id").lean();
-
-      if (!eventExists) {
+      const count = await Event.countDocuments({ _id: idStr }).maxTimeMS(500);
+      if (count === 0) {
         return next(new Error("Referenced event does not exist"));
       }
     } catch (err) {
