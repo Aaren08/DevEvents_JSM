@@ -98,9 +98,6 @@ const EventSchema = new Schema<IEvent>(
   }
 );
 
-// Create unique index on slug for faster lookups and enforce uniqueness
-EventSchema.index({ slug: 1 }, { unique: true, background: true });
-
 // Helper function to generate a URL-friendly slug
 function generateSlug(title: string): string {
   const baseSlug = title
