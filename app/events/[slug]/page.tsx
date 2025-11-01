@@ -1,4 +1,7 @@
 import BookEvent from "@/components/BookEvent";
+import EventsList from "@/components/EventLists";
+import { IEvent } from "@/database";
+import { getSimilarEventsBySlug } from "@/lib/actions/event.actions";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -71,6 +74,10 @@ const EventDetailsPage = async ({
 
   const bookings = 10;
 
+  const similarEvents = (await getSimilarEventsBySlug(
+    slug
+  )) as unknown as IEvent[];
+
   return (
     <section id="event">
       <div className="header">
@@ -115,14 +122,14 @@ const EventDetailsPage = async ({
             />
           </section>
 
-          <EventAgenda agenda={JSON.parse(agenda[0])} />
+          <EventAgenda agenda={agenda} />
 
           <section className="flex-col-gap-2">
             <h2>About the Organizer</h2>
             <p>{organizer}</p>
           </section>
 
-          <EventTags tags={JSON.parse(tags[0])} />
+          <EventTags tags={tags} />
         </div>
 
         {/* RIGHT -- BOOKING FORM */}
@@ -137,6 +144,15 @@ const EventDetailsPage = async ({
             <BookEvent />
           </div>
         </aside>
+      </div>
+
+      <div className="flex w-full flex-col gap-4 pt-20">
+        <h2>Similar Events</h2>
+        <div>
+          {similarEvents.length > 0 && (
+            <EventsList events={similarEvents} /> // ← Single EventsList with all events
+          )}
+        </div>
       </div>
     </section>
   );
