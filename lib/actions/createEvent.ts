@@ -35,21 +35,32 @@ export interface CreateEventState {
  */
 async function uploadImage(image: File): Promise<string> {
   try {
-    // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), "public", "uploads", "events");
     await mkdir(uploadsDir, { recursive: true });
 
-    // Generate unique filename
-    const fileExtension = image.name.split(".").pop();
-    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
+    // Derive a safe extension from MIME type; fallback to 'png'
+    const mimeToExt: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/svg+xml": "svg",
+    };
+    const safeExt = mimeToExt[image.type] || "png";
+
+    // Only allow whitelisted extensions
+    const extFromName = (image.name.split(".").pop() || "").toLowerCase();
+    const allowed = new Set(Object.values(mimeToExt));
+    const finalExt = allowed.has(extFromName) ? extFromName : safeExt;
+
+    const uniqueFilename = `${uuidv4()}.${finalExt}`;
     const filePath = path.join(uploadsDir, uniqueFilename);
 
-    // Convert File to Buffer and save
     const bytes = await image.arrayBuffer();
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
-    // Return public URL path
     return `/uploads/events/${uniqueFilename}`;
   } catch (error) {
     console.error("Error uploading image:", error);
