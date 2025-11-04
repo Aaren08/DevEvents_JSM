@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/mongodb";
+import Event from "@/database/event.model";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
 
 // Type for the form state returned by the action
 export interface CreateEventState {
@@ -23,6 +27,34 @@ export interface CreateEventState {
     agenda?: string;
     organizer?: string;
   };
+}
+
+/**
+ * Helper function to upload image to local storage
+ * Returns the public URL path to the uploaded image
+ */
+async function uploadImage(image: File): Promise<string> {
+  try {
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(process.cwd(), "public", "uploads", "events");
+    await mkdir(uploadsDir, { recursive: true });
+
+    // Generate unique filename
+    const fileExtension = image.name.split(".").pop();
+    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
+    const filePath = path.join(uploadsDir, uniqueFilename);
+
+    // Convert File to Buffer and save
+    const bytes = await image.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    await writeFile(filePath, buffer);
+
+    // Return public URL path
+    return `/uploads/events/${uniqueFilename}`;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw new Error("Failed to upload image");
+  }
 }
 
 /**
@@ -124,9 +156,6 @@ export async function createEventAction(
       };
     }
 
-    // Connect to database
-    await connectDB();
-
     // Parse tags and agenda
     const tagsArray = tags
       .split(",")
@@ -163,35 +192,30 @@ export async function createEventAction(
       };
     }
 
-    // Upload image using the existing API endpoint
-    const uploadFormData = new FormData();
-    uploadFormData.append("title", title);
-    uploadFormData.append("description", description);
-    uploadFormData.append("overview", overview);
-    uploadFormData.append("image", image);
-    uploadFormData.append("venue", venue);
-    uploadFormData.append("location", location);
-    uploadFormData.append("mode", mode);
-    uploadFormData.append("audience", audience);
-    uploadFormData.append("organizer", organizer);
-    uploadFormData.append("eventStartAt", eventStartAt.toISOString());
-    uploadFormData.append("tags", JSON.stringify(tagsArray));
-    uploadFormData.append("agenda", JSON.stringify(agendaArray));
+    // Connect to database
+    await connectDB();
 
-    // Call the existing API route
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-    const response = await fetch(`${apiUrl}/api/events`, {
-      method: "POST",
-      body: uploadFormData,
+    // Upload image to local storage
+    const imageUrl = await uploadImage(image);
+
+    // Create event in database
+    await Event.create({
+      title,
+      description,
+      overview,
+      image: imageUrl,
+      venue,
+      location,
+      mode,
+      audience,
+      organizer,
+      eventType,
+      eventStartAt,
+      tags: tagsArray,
+      agenda: agendaArray,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return {
-        success: false,
-        message: errorData.message || "Failed to create event",
-      };
-    }
 
     // Revalidate the events page to show the new event
     revalidatePath("/events");
