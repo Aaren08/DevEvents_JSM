@@ -1,4 +1,4 @@
-import { Schema, model, models, Document, Types } from "mongoose";
+import { Schema, model, models, Document, Types, Model } from "mongoose";
 import Event from "./event.model";
 
 // TypeScript interface for Booking document
@@ -7,6 +7,11 @@ export interface IBooking extends Document {
   email: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// TypeScript interface for Booking model with static methods
+export interface IBookingModel extends Model<IBooking> {
+  getBookingCountByEventId(eventId: string | Types.ObjectId): Promise<number>;
 }
 
 const BookingSchema = new Schema<IBooking>(
@@ -43,6 +48,23 @@ const BookingSchema = new Schema<IBooking>(
 BookingSchema.index({ eventId: 1 });
 
 /**
+ * Static method to get booking count for a specific event
+ * @param eventId - The event ID to count bookings for
+ * @returns Promise<number> - Number of bookings for the event
+ */
+BookingSchema.statics.getBookingCountByEventId = async function (
+  eventId: string | Types.ObjectId
+): Promise<number> {
+  try {
+    const count = await this.countDocuments({ eventId });
+    return count;
+  } catch (error) {
+    console.error("Error getting booking count:", error);
+    return 0;
+  }
+};
+
+/**
  * Pre-save hook to validate event reference
  * - Verifies that the referenced eventId exists in the Event collection
  * - Prevents orphaned bookings by ensuring referential integrity
@@ -68,6 +90,7 @@ BookingSchema.pre("save", async function (next) {
 });
 
 // Use existing model if available (prevents OverwriteModelError in development)
-const Booking = models.Booking || model<IBooking>("Booking", BookingSchema);
+const Booking = (models.Booking ||
+  model<IBooking, IBookingModel>("Booking", BookingSchema)) as IBookingModel;
 
 export default Booking;

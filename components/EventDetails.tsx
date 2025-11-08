@@ -2,6 +2,7 @@ import BookEvent from "@/components/BookEvent";
 import EventsList from "@/components/EventLists";
 import { IEvent } from "@/database";
 import { getSimilarEventsBySlug } from "@/lib/actions/event.actions";
+import { getBookingCount } from "@/lib/actions/booking.actions";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -86,7 +87,8 @@ const EventDetails = async ({ slug }: EventDetailsProps) => {
     throw new Error("Event description not found");
   }
 
-  const bookings = 10;
+  // Fetch real booking count from database
+  const bookings = await getBookingCount(event._id);
 
   const similarEvents = (await getSimilarEventsBySlug(
     slug
