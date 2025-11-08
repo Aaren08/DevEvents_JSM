@@ -6,15 +6,12 @@ import { headers } from "next/headers";
  * Use this in server components, server actions, and API routes
  */
 export async function getServerSession() {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    return session;
-  } catch (error) {
-    console.error("Error getting session:", error);
-    return null;
-  }
+  // Let errors propagate to be handled by Next.js error boundaries
+  // or the calling function's try-catch block.
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  return session;
 }
 
 /**
