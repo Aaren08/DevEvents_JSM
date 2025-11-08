@@ -1,9 +1,13 @@
+// lib/auth.ts
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import client from "./db";
+import { getMongoClient } from "./mongodb";
 
 export const auth = betterAuth({
-  database: mongodbAdapter(client.db()),
+  database: mongodbAdapter(
+    // Pass a promise that resolves to the database
+    await getMongoClient().then((client) => client.db())
+  ),
 
   socialProviders: {
     google: {

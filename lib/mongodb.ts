@@ -1,77 +1,108 @@
 import mongoose from "mongoose";
+import { MongoClient } from "mongodb";
 
-// Define the MongoDB connection string type
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// Validate that the MongoDB URI is defined
 if (!MONGODB_URI) {
   throw new Error(
     "Please define the MONGODB_URI environment variable inside .env.local"
   );
 }
 
-// Define types for the cached connection
+// Cache for Mongoose connection
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
 }
 
-// Extend the global object to include mongoose cache
-// This prevents TypeScript errors when accessing global.mongoose
-declare global {
-  var mongoose: MongooseCache | undefined;
+// Cache for native MongoDB client (for better-auth)
+interface MongoClientCache {
+  client: MongoClient | null;
+  promise: Promise<MongoClient> | null;
 }
 
-// Initialize cache on the global object to persist across hot reloads
-// In development, Next.js hot reload can cause multiple connections
-// Caching prevents "Cannot overwrite model" and connection limit errors
-const cached: MongooseCache = global.mongoose || { conn: null, promise: null };
+declare global {
+  var mongoose: MongooseCache | undefined;
+  var mongoClient: MongoClientCache | undefined;
+}
+
+// Initialize Mongoose cache
+const mongooseCache: MongooseCache = global.mongoose || {
+  conn: null,
+  promise: null,
+};
 
 if (!global.mongoose) {
-  global.mongoose = cached;
+  global.mongoose = mongooseCache;
+}
+
+// Initialize native client cache
+const clientCache: MongoClientCache = global.mongoClient || {
+  client: null,
+  promise: null,
+};
+
+if (!global.mongoClient) {
+  global.mongoClient = clientCache;
 }
 
 /**
- * Establishes and returns a cached MongoDB connection using Mongoose
- *
- * @returns {Promise<typeof mongoose>} The Mongoose instance with active connection
- *
- * Connection Strategy:
- * - Returns existing connection if available (cached.conn)
- * - Returns in-flight connection promise if connecting (cached.promise)
- * - Creates new connection if none exists
- *
- * The cache persists across module reloads in development mode,
- * preventing connection pool exhaustion and duplicate model errors
+ * Connects to MongoDB using Mongoose (ODM)
+ * Use this for routes with Mongoose models
  */
-async function connectDB(): Promise<typeof mongoose> {
-  // Return existing connection if already established
-  if (cached.conn) {
-    return cached.conn;
+export async function connectDB(): Promise<typeof mongoose> {
+  if (mongooseCache.conn) {
+    return mongooseCache.conn;
   }
 
-  // If connection is in progress, wait for it to complete
-  if (!cached.promise) {
+  if (!mongooseCache.promise) {
     const opts = {
-      bufferCommands: false, // Disable Mongoose buffering to fail fast on connection issues
+      bufferCommands: false,
     };
 
-    // Create new connection promise and cache it
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
-    });
+    mongooseCache.promise = mongoose
+      .connect(MONGODB_URI!, opts)
+      .then((mongoose) => mongoose);
   }
 
   try {
-    // Wait for connection to establish and cache the result
-    cached.conn = await cached.promise;
+    mongooseCache.conn = await mongooseCache.promise;
   } catch (e) {
-    // Clear the promise cache on error so next call can retry
-    cached.promise = null;
+    mongooseCache.promise = null;
     throw e;
   }
 
-  return cached.conn;
+  return mongooseCache.conn;
 }
 
+/**
+ * Gets the native MongoDB client connection
+ * Use this for better-auth and direct MongoDB operations
+ *
+ * Strategy: Reuses Mongoose's underlying connection to avoid
+ * creating a separate connection pool
+ */
+export async function getMongoClient(): Promise<MongoClient> {
+  // First ensure Mongoose is connected
+  await connectDB();
+
+  // Get the native MongoDB client from Mongoose's connection
+  // This reuses the same connection pool instead of creating a new one
+  const client = mongoose.connection.getClient();
+
+  return client;
+}
+
+/**
+ * Gets the database instance from Mongoose connection
+ * Use this when you need direct database access while using Mongoose
+ */
+export function getDatabase() {
+  if (!mongoose.connection.db) {
+    throw new Error("Database not connected. Call connectDB() first.");
+  }
+  return mongoose.connection.db;
+}
+
+// Default export for backwards compatibility
 export default connectDB;
