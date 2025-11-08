@@ -1,7 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import Login from "./Login";
+import { useSession } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 const Navbar = () => {
+  const { data: session } = useSession();
+
+  const handleRestrictedClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!session) {
+      e.preventDefault();
+      toast.error("Please log in to access this page.", {
+        position: "top-center",
+        style: { backgroundColor: "#ef4444", color: "#fff" },
+      });
+    }
+  };
   return (
     <header>
       <nav>
@@ -11,8 +27,13 @@ const Navbar = () => {
         </Link>
         <ul>
           <Link href="/">Home</Link>
-          <Link href="/events">Events</Link>
-          <Link href="/create-event">Create Event</Link>
+          <Link onClick={handleRestrictedClick} href="/events">
+            Events
+          </Link>
+          <Link onClick={handleRestrictedClick} href="/create-event">
+            Create Event
+          </Link>
+          <Login />
         </ul>
       </nav>
     </header>

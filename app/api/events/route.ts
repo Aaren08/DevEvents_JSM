@@ -2,10 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import Event from "@/database/event.model";
 import connectDB from "@/lib/mongodb";
+import { requireAuth } from "@/lib/auth-helpers";
 
 // POST request handler to create a new event
 export async function POST(req: NextRequest) {
   try {
+    // Verify user is authenticated by reading server-side session
+    const user = await requireAuth();
+
+    if (!user) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please sign in to create an event." },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
     const formData = await req.formData();
 
@@ -36,6 +47,9 @@ export async function POST(req: NextRequest) {
     const tags = JSON.parse(formData.get("tags") as string);
     const agenda = JSON.parse(formData.get("agenda") as string);
 
+    // Securely set creatorId from server-side session (cannot be spoofed)
+    const creatorId = user.id;
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -59,6 +73,7 @@ export async function POST(req: NextRequest) {
       ...event,
       tags: tags,
       agenda: agenda,
+      creatorId: creatorId, // Set from server session, not from client
     });
     return NextResponse.json(
       {
@@ -105,6 +120,16 @@ export async function GET() {
 // DELETE request handler to delete an event
 export async function DELETE(req: NextRequest) {
   try {
+    // Verify user is authenticated
+    const user = await requireAuth();
+
+    if (!user) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
 
     const contentType = req.headers.get("content-type") || "";
@@ -125,6 +150,23 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Find event and verify ownership before deleting
+    const eventToDelete = await Event.findById(id);
+    if (!eventToDelete) {
+      return NextResponse.json(
+        { message: "Event not found", id },
+        { status: 404 }
+      );
+    }
+
+    // Check if user is the creator
+    if (eventToDelete.creatorId !== user.id) {
+      return NextResponse.json(
+        { message: "Forbidden. You can only delete your own events." },
+        { status: 403 }
+      );
+    }
+
     const deletedEvent = await Event.findByIdAndDelete(id);
 
     if (deletedEvent?.image) {
@@ -132,13 +174,6 @@ export async function DELETE(req: NextRequest) {
       if (publicId) {
         await cloudinary.uploader.destroy(publicId);
       }
-    }
-
-    if (!deletedEvent) {
-      return NextResponse.json(
-        { message: "Event not found", id },
-        { status: 404 }
-      );
     }
 
     return NextResponse.json({
@@ -160,6 +195,16 @@ export async function DELETE(req: NextRequest) {
 // PUT request handler to update an event
 export async function PUT(req: NextRequest) {
   try {
+    // Verify user is authenticated
+    const user = await requireAuth();
+
+    if (!user) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
 
     const formData = await req.formData();
@@ -185,6 +230,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(
         { message: "Event not found", id },
         { status: 404 }
+      );
+    }
+
+    // Check if user is the creator
+    if (existingEvent.creatorId !== user.id) {
+      return NextResponse.json(
+        { message: "Forbidden. You can only update your own events." },
+        { status: 403 }
       );
     }
 
