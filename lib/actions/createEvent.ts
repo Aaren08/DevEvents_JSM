@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/mongodb";
 import Event from "@/database/event.model";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { v2 as cloudinary } from "cloudinary";
+import { requireAuth } from "@/lib/auth-helpers";
 
 // Type for the form state returned by the action
 export interface CreateEventState {
@@ -30,41 +29,78 @@ export interface CreateEventState {
 }
 
 /**
- * Helper function to upload image to local storage
- * Returns the public URL path to the uploaded image
+ * Helper function to upload image to Cloudinary
+ * Returns the secure URL of the uploaded image
  */
 async function uploadImage(image: File): Promise<string> {
   try {
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "events");
-    await mkdir(uploadsDir, { recursive: true });
+    // Configure Cloudinary (using CLOUDINARY_URL env variable)
+    cloudinary.config({
+      secure: true,
+    });
 
-    // Derive a safe extension from MIME type; fallback to 'png'
+    // Whitelist of allowed MIME types for security
+    const allowedMimeTypes = new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/gif",
+    ]);
+
+    // Validate MIME type
+    if (!allowedMimeTypes.has(image.type)) {
+      throw new Error(
+        "Invalid image format. Only PNG, JPEG, WEBP, and GIF are allowed."
+      );
+    }
+
+    // Map MIME types to file extensions
     const mimeToExt: Record<string, string> = {
       "image/png": "png",
       "image/jpeg": "jpg",
       "image/jpg": "jpg",
       "image/webp": "webp",
       "image/gif": "gif",
-      "image/svg+xml": "svg",
     };
-    const safeExt = mimeToExt[image.type] || "png";
 
-    // Only allow whitelisted extensions
-    const extFromName = (image.name.split(".").pop() || "").toLowerCase();
-    const allowed = new Set(Object.values(mimeToExt));
-    const finalExt = allowed.has(extFromName) ? extFromName : safeExt;
+    const extension = mimeToExt[image.type] || "jpg";
 
-    const uniqueFilename = `${uuidv4()}.${finalExt}`;
-    const filePath = path.join(uploadsDir, uniqueFilename);
-
+    // Convert File to Buffer
     const bytes = await image.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
 
-    return `/uploads/events/${uniqueFilename}`;
+    // Upload to Cloudinary
+    const uploadData = await new Promise<{ secure_url: string }>(
+      (resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            {
+              resource_type: "image",
+              folder: "Dev Event Platform",
+              format: extension, // Preserve file extension based on MIME type
+              allowed_formats: ["png", "jpg", "jpeg", "webp", "gif"], // Extra security layer
+            },
+            (error, result) => {
+              if (error) {
+                reject(error);
+              } else if (result) {
+                resolve(result);
+              } else {
+                reject(new Error("Upload failed without error"));
+              }
+            }
+          )
+          .end(buffer);
+      }
+    );
+
+    return uploadData.secure_url;
   } catch (error) {
-    console.error("Error uploading image:", error);
-    throw new Error("Failed to upload image");
+    console.error("Error uploading image to Cloudinary:", error);
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to upload image"
+    );
   }
 }
 
@@ -77,6 +113,16 @@ export async function createEventAction(
   formData: FormData
 ): Promise<CreateEventState> {
   try {
+    // Verify user is authenticated by reading server-side session
+    const user = await requireAuth();
+
+    if (!user) {
+      return {
+        success: false,
+        message: "Unauthorized. Please sign in to create an event.",
+      };
+    }
+
     // Extract form data
     const title = formData.get("title") as string;
     const date = formData.get("date") as string;
@@ -206,10 +252,10 @@ export async function createEventAction(
     // Connect to database
     await connectDB();
 
-    // Upload image to local storage
+    // Upload image to Cloudinary
     const imageUrl = await uploadImage(image);
 
-    // Create event in database
+    // Create event in database with creatorId from server session
     await Event.create({
       title,
       description,
@@ -224,6 +270,7 @@ export async function createEventAction(
       eventStartAt,
       tags: tagsArray,
       agenda: agendaArray,
+      creatorId: user.id, // Securely set from server session
       createdAt: new Date(),
       updatedAt: new Date(),
     });

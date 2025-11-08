@@ -240,6 +240,22 @@
     }
   }
 
+  .user-profile {
+    @apply flex items-center gap-2 md:gap-3;
+  }
+
+  .user-avatar {
+    @apply rounded-full object-cover;
+  }
+
+  .user-name {
+    @apply hidden md:inline font-medium text-primary;
+  }
+
+  .login-btn {
+    @apply px-4 py-1.5 md:px-6 md:py-2 bg-primary hover:bg-primary/90 text-black rounded-md font-medium hover:bg-blue-700 transition-colors text-sm cursor-pointer border-none;
+  }
+
   .events {
     @apply grid md:grid-cols-3 gap-10 sm:grid-cols-2 grid-cols-1;
   }

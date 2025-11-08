@@ -15,6 +15,7 @@ export interface IEvent extends Document {
   agenda: string[];
   organizer: string;
   tags: string[];
+  creatorId: string; // User ID of the event creator
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +92,12 @@ const EventSchema = new Schema<IEvent>(
         validator: (arr: string[]) => arr.length > 0,
         message: "Tags must contain at least one item",
       },
+    },
+    creatorId: {
+      type: String,
+      required: [true, "Creator ID is required"],
+      trim: true,
+      index: true, // Index for faster queries by creator
     },
   },
   {
