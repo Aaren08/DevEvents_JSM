@@ -150,24 +150,25 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Find event and verify ownership before deleting
-    const eventToDelete = await Event.findById(id);
-    if (!eventToDelete) {
-      return NextResponse.json(
-        { message: "Event not found", id },
-        { status: 404 }
-      );
-    }
+    // Atomically find and delete the event, ensuring ownership.
+    const deletedEvent = await Event.findOneAndDelete({ _id: id, creatorId: user.id });
 
-    // Check if user is the creator
-    if (eventToDelete.creatorId !== user.id) {
+    if (!deletedEvent) {
+      // To provide a specific error, we can check if the event exists at all.
+      // This is safe because the critical delete operation is already atomic.
+      const eventExists = await Event.findById(id).select("_id").lean();
+      if (!eventExists) {
+        return NextResponse.json(
+          { message: "Event not found" },
+          { status: 404 }
+        );
+      }
+      // If the event exists but wasn't deleted, it's a permission issue.
       return NextResponse.json(
         { message: "Forbidden. You can only delete your own events." },
         { status: 403 }
       );
     }
-
-    const deletedEvent = await Event.findByIdAndDelete(id);
 
     if (deletedEvent?.image) {
       const publicId = deletedEvent.image.split("/").pop()?.split(".")[0];
