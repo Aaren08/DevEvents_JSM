@@ -7,31 +7,32 @@ import { toast } from "sonner";
 
 const ExploreBtn = () => {
   const { data: session } = useSession();
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (!session) {
+      e.preventDefault();
+      toast.error("Please log in to explore events.");
+    }
+  };
+
   return (
-    <button
-      type="button"
+    <Link
+      href="/events"
       id="explore-btn"
-      className="mt-7 mx-auto"
-      onClick={() => {
-        if (!session) {
-          toast.error("Please log in to explore events.");
-        }
-      }}
+      className="mt-12 mx-auto block w-fit"
+      onClick={handleClick}
     >
-      <Link
-        href="/events"
-        className={!session ? "pointer-events-none" : ""}
-        aria-disabled={!session}
-      >
+      <span className="inline-flex items-center px-2">
         Explore Events
         <Image
           src="/icons/arrow-down.svg"
           alt="arrow-down"
           width={24}
           height={24}
+          className="ml-1.5"
         />
-      </Link>
-    </button>
+      </span>
+    </Link>
   );
 };
 
