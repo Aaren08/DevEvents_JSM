@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
-import Event from "@/database/event.model";
+import Event, { IEvent } from "@/database/event.model";
 import connectDB from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth-helpers";
 
@@ -151,7 +151,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Atomically find and delete the event, ensuring ownership.
-    const deletedEvent = await Event.findOneAndDelete({ _id: id, creatorId: user.id });
+    const deletedEvent = await Event.findOneAndDelete({
+      _id: id,
+      creatorId: user.id,
+    });
 
     if (!deletedEvent) {
       // To provide a specific error, we can check if the event exists at all.
@@ -225,17 +228,20 @@ export async function PUT(req: NextRequest) {
       } catch {}
     }
 
-    // Find existing event before update
-    const existingEvent = await Event.findById(id);
-    if (!existingEvent) {
-      return NextResponse.json(
-        { message: "Event not found", id },
-        { status: 404 }
-      );
-    }
+    // Retrieve old event data first (for Cloudinary cleanup and authorization)
+    const existingEvent = (await Event.findOne({
+      _id: id,
+      creatorId: user.id,
+    }).lean()) as IEvent | null;
 
-    // Check if user is the creator
-    if (existingEvent.creatorId !== user.id) {
+    if (!existingEvent) {
+      const anyEvent = await Event.findById(id);
+      if (!anyEvent) {
+        return NextResponse.json(
+          { message: "Event not found", id },
+          { status: 404 }
+        );
+      }
       return NextResponse.json(
         { message: "Forbidden. You can only update your own events." },
         { status: 403 }
@@ -246,20 +252,6 @@ export async function PUT(req: NextRequest) {
     if (file && file.size > 0 && file.type.startsWith("image/")) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
-
-      // Extract Cloudinary public_id from existing image URL (if any)
-      if (existingEvent.image && existingEvent.image.includes("cloudinary")) {
-        try {
-          const parts = existingEvent.image.split("/");
-          const filename = parts[parts.length - 1];
-          const publicId = `events/${filename.split(".")[0]}`;
-
-          // Delete the old image
-          await cloudinary.uploader.destroy(publicId);
-        } catch (e) {
-          console.warn("Failed to delete old Cloudinary image:", e);
-        }
-      }
 
       // Upload the new image
       const uploadResponse = await cloudinary.uploader.upload(base64, {
@@ -272,11 +264,36 @@ export async function PUT(req: NextRequest) {
       delete data.image; // Keep existing image if no new upload
     }
 
-    // Update event document
-    const updatedEvent = await Event.findByIdAndUpdate(id, data, {
-      new: true,
-      runValidators: true,
-    });
+    // Atomic update
+    const updatedEvent = await Event.findOneAndUpdate(
+      { _id: id, creatorId: user.id },
+      data,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    // Delete old Cloudinary image after successful update
+    if (
+      file &&
+      file.size > 0 &&
+      existingEvent.image &&
+      existingEvent.image.includes("cloudinary")
+    ) {
+      try {
+        const parts = existingEvent.image.split("/");
+        const filename = parts[parts.length - 1];
+        const publicId = `events/${filename.split(".")[0]}`;
+
+        // Delete the old image asynchronously (don't await)
+        cloudinary.uploader.destroy(publicId).catch((e) => {
+          console.warn("Failed to delete old Cloudinary image:", e);
+        });
+      } catch (e) {
+        console.warn("Failed to parse old Cloudinary image URL:", e);
+      }
+    }
 
     return NextResponse.json({
       message: "Event Updated Successfully",
