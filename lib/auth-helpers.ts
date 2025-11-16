@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { cache } from "react";
 
 /**
  * Server-side helper to get current session
@@ -31,12 +32,12 @@ export interface SessionUser {
  * Check if user is authenticated
  * Returns user data if authenticated, null otherwise
  */
-export async function requireAuth(): Promise<SessionUser | null> {
+export const requireAuth = cache(async (): Promise<SessionUser | null> => {
   const session = await getServerSession();
-  
+
   if (!session?.user?.id) {
     return null;
   }
-  
+
   return session.user as SessionUser;
-}
+});

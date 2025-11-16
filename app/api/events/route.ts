@@ -3,6 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import Event, { IEvent } from "@/database/event.model";
 import connectDB from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth-helpers";
+import Booking from "@/database/booking.model";
 
 // POST request handler to create a new event
 export async function POST(req: NextRequest) {
@@ -115,8 +116,6 @@ export async function GET() {
   }
 }
 
-// Route that accepts a slug as input -> returns the event details
-
 // DELETE request handler to delete an event
 export async function DELETE(req: NextRequest) {
   try {
@@ -173,6 +172,13 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Delete all bookings associated with this event
+    const deletedBookings = await Booking.deleteMany({ eventId: id });
+    console.log(
+      `Deleted ${deletedBookings.deletedCount} booking(s) for event ${id}`
+    );
+
+    // Delete the event image from Cloudinary if it exists
     if (deletedEvent?.image) {
       const publicId = deletedEvent.image.split("/").pop()?.split(".")[0];
       if (publicId) {
@@ -183,6 +189,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({
       message: "Event Deleted Successfully",
       deletedEvent,
+      bookingsDeleted: deletedBookings.deletedCount,
     });
   } catch (err) {
     console.error(err);
