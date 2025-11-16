@@ -31,7 +31,7 @@ export default function ManageEvent({
 }: ManageEventProps) {
   const [events, setEvents] = useState<EventWithBookings[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page] = useState(currentPage);
+  const [page, setPage] = useState(currentPage);
   const router = useRouter();
 
   // Edit dialog state
@@ -97,7 +97,8 @@ export default function ManageEvent({
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      window.location.href = `/events?page=${newPage}`;
+      setPage(newPage);
+      router.push(`/events?page=${newPage}`);
     }
   };
 
