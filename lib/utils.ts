@@ -50,3 +50,39 @@ export const normalizeEvent = (event: IEvent): NormalizedEvent => {
 
 export const normalizeEvents = (events: IEvent[]): NormalizedEvent[] =>
   events.map(normalizeEvent);
+
+// Convert any non-plain values (ObjectId, Date) to simple primitives
+const stringifyIfObject = (val: unknown) => {
+  if (
+    val &&
+    typeof val === "object" &&
+    typeof (val as { toString?: () => string }).toString === "function"
+  ) {
+    try {
+      return (val as { toString: () => string }).toString();
+    } catch {
+      return String(val);
+    }
+  }
+  return val;
+};
+
+//  Convert date-like values to ISO string format
+const toISOStringIfDateLike = (val: unknown) => {
+  if (!val) return val;
+  if (typeof val === "string") return val;
+  try {
+    const d = new Date(val as string | number | Date);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  } catch {
+    // ignore
+  }
+  return val;
+};
+
+//  Serialize events by converting ObjectIds and Dates to strings for safe client-side usage
+export function serializeEvents(events: IEvent[]): IEvent[] {
+  // Using JSON.stringify and JSON.parse is a robust way to get plain, serializable objects.
+  // It correctly handles nested objects, ObjectIds, and Dates.
+  return JSON.parse(JSON.stringify(events));
+}

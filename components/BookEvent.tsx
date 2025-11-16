@@ -49,7 +49,7 @@ const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
       if (result.success) {
         setSubmitted(true);
         toast.success(result.message || "Booking successful!", {
-          position: "top-center",
+          position: "top-right",
           style: {
             background: "white",
             color: "black",
@@ -64,7 +64,7 @@ const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
         });
       } else {
         toast.error(result.message || "Booking failed", {
-          position: "top-center",
+          position: "top-right",
           style: {
             background: "#ef4444",
             color: "white",
@@ -76,7 +76,7 @@ const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
       }
     } catch (error) {
       toast.error("An unexpected error occurred", {
-        position: "top-center",
+        position: "top-right",
         style: {
           background: "#ef4444",
           color: "white",

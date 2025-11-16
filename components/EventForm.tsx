@@ -4,6 +4,7 @@ import { useActionState, useRef, useState, useEffect } from "react";
 import { createEventAction, CreateEventState } from "@/lib/actions/createEvent";
 import Image from "next/image";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 
 const initialState: CreateEventState = {
   success: false,
@@ -16,7 +17,8 @@ const EventForm = () => {
     initialState
   );
   const formRef = useRef<HTMLFormElement>(null);
-  const prevMessageRef = useRef<string>("");
+  const prevStateRef = useRef<CreateEventState>(initialState);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string>("");
 
   // Handle file input change to show file name
@@ -31,8 +33,9 @@ const EventForm = () => {
 
   // Reset form after successful submission
   useEffect(() => {
-    if (state.message && state.message !== prevMessageRef.current) {
-      prevMessageRef.current = state.message;
+    if (state !== prevStateRef.current && state.message) {
+      prevStateRef.current = state;
+
       if (state.success) {
         toast.success(state.message, {
           position: "top-right",
@@ -42,13 +45,33 @@ const EventForm = () => {
             border: "1px solid #e5e5e5",
           },
         });
+
+        // Track form success submission
+        const fd = formRef.current ? new FormData(formRef.current) : null;
+        const imageEntry = fd?.get("image");
+        posthog.capture("event_form_submission", {
+          title: fd?.get("title")?.toString() ?? undefined,
+          date: fd?.get("date")?.toString() ?? undefined,
+          time: fd?.get("time")?.toString() ?? undefined,
+          location: fd?.get("location")?.toString() ?? undefined,
+          description: fd?.get("description")?.toString() ?? undefined,
+          image:
+            imageEntry instanceof File
+              ? imageEntry.name
+              : imageEntry?.toString() ?? undefined,
+        });
+
         // Reset form after successful submission
         if (formRef.current) {
           formRef.current.reset();
-          // Cascading setTimeout to ensure file input resets
+          // Cascade reset for file input
           setTimeout(() => {
             setFileName("");
           }, 0);
+          // Manually clear the file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
         }
       } else {
         toast.error(state.message, {
@@ -58,6 +81,11 @@ const EventForm = () => {
             color: "white",
             border: "1px solid #dc2626",
           },
+        });
+
+        // Track form error submission
+        posthog.capture("event_form_submission_error", {
+          errors: state.errors,
         });
       }
     }
@@ -193,6 +221,7 @@ const EventForm = () => {
             <label htmlFor="image">Event Image / Banner</label>
             <div className="relative">
               <input
+                ref={fileInputRef}
                 type="file"
                 id="image"
                 name="image"
