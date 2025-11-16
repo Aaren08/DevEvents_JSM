@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
+![Project Logo](./public/icons/logo.png)
+</div>
 
-## Getting Started
+## Description
 
-First, run the development server:
+Dev Events Platform is a full-stack event management app built with Next.js and TypeScript. It provides pages for browsing events, viewing event details, creating and managing events, and handling bookings. The codebase follows the Next.js app-router structure with server and client components, API routes for auth and event/booking endpoints, and a small component library for reusable UI (event cards, forms, modals, skeletons). Data is persisted in MongoDB and the app includes authentication helpers and actions for server-side operations.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Tech Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Framework: Next.js (App Router) — server/client components, API routes
+- Language: TypeScript
+- UI: React (with component-driven structure)
+- Database: MongoDB (via the project’s mongodb.ts and models in database)
+- Styling: PostCSS + global CSS (includes globals.css and animate.css)
+- Utilities & helpers: project-local lib/\* (auth, utils, actions)
+- Notifications / UI helpers: custom UI primitives (e.g., ui/sonner.tsx, alert/dialog components)
+- Runtime: Node.js (server-side in Next.js)
+- Dev / Deployment: typical Next.js setup (deployable to Vercel or similar platforms)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To run this project, you will need to add the following environment variables to your .env file
 
-## Learn More
+- `NEXT_PUBLIC_POSTHOG_KEY`
+- `NEXT_PUBLIC_POSTHOG_HOST`
+- `NEXT_PUBLIC_BASE_URL=http://localhost:3000`
+- `MONGODB_URI`
+- `CLOUDINARY_URL`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `BETTER_AUTH_URI=http://localhost:3000`
+- `BETTER_AUTH_SECRET`
 
-To learn more about Next.js, take a look at the following resources:
+## Documentation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Provided in the documentation folder in project codebase.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Author
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[@adrianhajdin](https://www.github.com/adrianhajdin)
