@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { IEvent } from "@/database/event.model";
 import { getBookingCount } from "@/lib/actions/booking.actions";
 import Image from "next/image";
@@ -31,6 +32,7 @@ export default function ManageEvent({
   const [events, setEvents] = useState<EventWithBookings[]>([]);
   const [loading, setLoading] = useState(true);
   const [page] = useState(currentPage);
+  const router = useRouter();
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -85,12 +87,12 @@ export default function ManageEvent({
 
   const handleEditSuccess = () => {
     // Refresh the page to show updated data
-    window.location.reload();
+    router.refresh();
   };
 
   const handleDeleteSuccess = () => {
     // Refresh the page to show updated data
-    window.location.reload();
+    router.refresh();
   };
 
   const handlePageChange = (newPage: number) => {
