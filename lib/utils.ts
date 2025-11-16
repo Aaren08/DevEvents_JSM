@@ -82,16 +82,7 @@ const toISOStringIfDateLike = (val: unknown) => {
 
 //  Serialize events by converting ObjectIds and Dates to strings for safe client-side usage
 export function serializeEvents(events: IEvent[]): IEvent[] {
-  return events.map((e0: IEvent) => {
-    const e = { ...e0 } as Record<string, unknown>;
-
-    return {
-      ...e,
-      _id: stringifyIfObject(e._id),
-      creatorId: stringifyIfObject(e.creatorId),
-      eventStartAt: toISOStringIfDateLike(e.eventStartAt),
-      createdAt: toISOStringIfDateLike(e.createdAt),
-      updatedAt: toISOStringIfDateLike(e.updatedAt),
-    } as unknown as IEvent;
-  });
+  // Using JSON.stringify and JSON.parse is a robust way to get plain, serializable objects.
+  // It correctly handles nested objects, ObjectIds, and Dates.
+  return JSON.parse(JSON.stringify(events));
 }
