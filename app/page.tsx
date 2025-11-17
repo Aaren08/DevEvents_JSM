@@ -2,14 +2,20 @@ import EventsList from "@/components/EventLists";
 import ExploreBtn from "@/components/ExploreBtn";
 import { IEvent } from "@/database/event.model";
 import { cacheLife } from "next/cache";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+import connectDB from "@/lib/mongodb";
+import Event from "@/database/event.model";
 
 const Page = async () => {
   "use cache";
   cacheLife("hours");
-  const response = await fetch(`${BASE_URL}/api/events`);
-  const { events } = await response.json();
+
+  // Query the database directly on the server to avoid making an HTTP
+  // request to our own API during prerender (which can return an HTML
+  // error page on the client and break JSON.parse).
+  await connectDB();
+  const rawEvents = await Event.find().sort({ createdAt: -1 }).lean();
+  const events = rawEvents as unknown as IEvent[];
+
   return (
     <section>
       <h1 className="text-center">
@@ -22,8 +28,7 @@ const Page = async () => {
       <ExploreBtn />
 
       <div className="mt-20 space-y-7">
-        <h3 className="mb-8">Featured Events</h3>
-        <EventsList events={events as IEvent[]} />
+        <EventsList events={events} />
       </div>
     </section>
   );
